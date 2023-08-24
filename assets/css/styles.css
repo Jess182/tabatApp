@@ -1,0 +1,13 @@
+@font-face {
+  font-family: 'digital-clock-font';
+  src: url('/assets/css/fonts/digital-7-mono.ttf');
+}
+
+.container {
+  width: 100dvw;
+  height: 100dvh;
+}
+
+.timer {
+  font-family: 'digital-clock-font';
+}

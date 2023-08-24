@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <link
+      href="https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900|Material+Icons"
+      rel="stylesheet"
+      type="text/css"
+    />
+    <link
+      href="https://cdn.jsdelivr.net/npm/quasar@2.12.5/dist/quasar.prod.css"
+      rel="stylesheet"
+      type="text/css"
+    />
+    <link href="/assets/css/styles.css" rel="stylesheet" type="text/css" />
+
+    <title>TabatApp</title>
+  </head>
+
+  <body>
+    <main id="app">
+      <div class="container row content-center q-pa-sm q-gutter-y-lg">
+        <section id="timer" class="row flex-center col-12">
+          <h2 class="timer q-my-none">
+            {{minutes}}:{{seconds}}.{{milliseconds}}
+          </h2>
+        </section>
+
+        <section id="sliders" class="row flex-center col-12">
+          <q-knob
+            show-value
+            class="q-ma-sm"
+            v-model="rounds"
+            size="70px"
+            color="primary"
+            track-color="grey-3"
+            max="30"
+            :readonly="lastControl === 'play'"
+          ></q-knob>
+          <q-knob
+            show-value
+            class="q-ma-sm"
+            v-model="roundTime"
+            size="70px"
+            color="primary"
+            track-color="grey-3"
+            max="60"
+            :readonly="lastControl === 'play'"
+          ></q-knob>
+          <q-knob
+            show-value
+            class="q-ma-sm"
+            v-model="recoverTime"
+            size="70px"
+            color="primary"
+            track-color="grey-3"
+            max="60"
+            :readonly="lastControl === 'play'"
+          ></q-knob>
+        </section>
+
+        <section id="controls" class="row flex-center q-gutter-x-sm col-12">
+          <q-btn
+            push
+            color="primary"
+            round
+            icon="pause"
+            data-action="pause"
+            @click="handleClick('pause')"
+            v-show="lastControl  === 'play'"
+          ></q-btn>
+          <q-btn
+            push
+            color="primary"
+            round
+            icon="play_arrow"
+            data-action="play"
+            @click="handleClick('play')"
+            :disabled="!rounds"
+            v-show="lastControl  !== 'play'"
+          ></q-btn>
+          <q-btn
+            push
+            color="primary"
+            round
+            icon="stop"
+            data-action="stop"
+            :disabled="lastControl  === 'stop'"
+            @click="handleClick('stop')"
+          ></q-btn>
+        </section>
+      </div>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.prod.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/quasar@2.12.5/dist/quasar.umd.prod.js"></script>
+    <script type="module" src="/assets/js/main.js"></script>
+  </body>
+</html>
