@@ -37,17 +37,17 @@
             color="primary"
             track-color="grey-3"
             max="30"
-            :readonly="lastControl === 'play'"
+            readonly="true"
           ></q-knob>
           <q-knob
             show-value
             class="q-ma-sm"
-            v-model="roundTime"
+            v-model="workTime"
             size="70px"
             color="primary"
             track-color="grey-3"
             max="60"
-            :readonly="lastControl === 'play'"
+            readonly="true"
           ></q-knob>
           <q-knob
             show-value
@@ -57,7 +57,7 @@
             color="primary"
             track-color="grey-3"
             max="60"
-            :readonly="lastControl === 'play'"
+            readonly="true"
           ></q-knob>
         </section>
 
@@ -96,6 +96,7 @@
 
     <script src="https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.prod.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/quasar@2.12.5/dist/quasar.umd.prod.js"></script>
-    <script type="module" src="/assets/js/main.js"></script>
+    <script type="module" src="/assets/js/app.js"></script>
+    <script type="module" src="/assets/js/wakelock.js"></script>
   </body>
 </html>
