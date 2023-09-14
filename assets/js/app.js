@@ -4,6 +4,9 @@ const ROUNDS_KEY = 'tabatApp-rounds';
 const WORK_TIME_KEY = 'tabatApp-work-time';
 const RECOVER_TIME_KEY = 'tabatApp-recover-time';
 
+let startTimeSound = new Audio('/assets/audio/bell.mp3');
+let endTimeSound = new Audio('/assets/audio/buzzer.mp3');
+
 const ROUNDS = ref(+localStorage.getItem(ROUNDS_KEY));
 const WORK_TIME = ref(+localStorage.getItem(WORK_TIME_KEY));
 const RECOVER_TIME = ref(+localStorage.getItem(RECOVER_TIME_KEY));
@@ -264,6 +267,8 @@ function watchers() {
         interval = setInterval(intervalCb, 1);
 
         initTime = startTime;
+
+        startTimeSound.play();
       }
 
       if (oldValue === 'pause') isPaused = false;
@@ -312,6 +317,8 @@ function watchers() {
   watch(workTime, (value) => {
     if (value || pausedWatchers) return;
 
+    endTimeSound.play();
+
     recoverMode = true;
 
     workTime.value = WORK_TIME.value;
@@ -326,6 +333,8 @@ function watchers() {
 
     // Round finish with recover time (affect to computedRounds in syncSliders())
     rounds.value--;
+
+    if (rounds.value) startTimeSound.play();
 
     resetRecover();
   });
