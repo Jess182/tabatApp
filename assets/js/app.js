@@ -1,8 +1,12 @@
 const { computed, createApp, ref, watch } = Vue;
 
-const ROUNDS = 2 || +localStorage.getItem('tabatApp-rounds');
-const WORK_TIME = 25 || +localStorage.getItem('tabatApp-round-time');
-const RECOVER_TIME = 10 || +localStorage.getItem('tabatApp-recover-time');
+const ROUNDS_KEY = 'tabatApp-rounds';
+const WORK_TIME_KEY = 'tabatApp-work-time';
+const RECOVER_TIME_KEY = 'tabatApp-recover-time';
+
+const ROUNDS = ref(+localStorage.getItem(ROUNDS_KEY));
+const WORK_TIME = ref(+localStorage.getItem(WORK_TIME_KEY));
+const RECOVER_TIME = ref(+localStorage.getItem(RECOVER_TIME_KEY));
 
 let interval = null;
 let initTime = null;
@@ -14,15 +18,16 @@ let recoverMode = false;
 
 let snapShotObj = null;
 
+const lastControl = ref('stop');
+const modal = ref(false);
+
 const ms = ref(0);
 const sec = ref(0);
 const min = ref(0);
 
-const recoverTime = ref(RECOVER_TIME);
-const workTime = ref(WORK_TIME);
-const rounds = ref(ROUNDS);
-
-const lastControl = ref('stop');
+const recoverTime = ref(RECOVER_TIME.value);
+const workTime = ref(WORK_TIME.value);
+const rounds = ref(ROUNDS.value);
 
 function intervalCb() {
   if (pausedWatchers || isPaused) return;
@@ -76,9 +81,9 @@ function renderElapsedTime(elapsedTime) {
     return;
   }
 
-  const roundTime = WORK_TIME + RECOVER_TIME;
+  const roundTime = WORK_TIME.value + RECOVER_TIME.value;
 
-  const totalTime = roundTime * ROUNDS * 1000;
+  const totalTime = roundTime * ROUNDS.value * 1000;
 
   elapsedTime = elapsedTime >= totalTime ? totalTime : elapsedTime;
 
@@ -97,7 +102,7 @@ function renderElapsedTime(elapsedTime) {
 
   rounds.value = !elapsedMoreThanRound
     ? rounds.value
-    : computedRounds < ROUNDS
+    : computedRounds < ROUNDS.value
     ? computedRounds
     : 0;
 
@@ -108,7 +113,7 @@ function renderElapsedTime(elapsedTime) {
   // Render workTime & recoverTime
   workTime.value = sliders.workTime;
   recoverTime.value = sliders.recoverTime;
-  recoverMode = !(sliders.recoverTime === RECOVER_TIME);
+  recoverMode = !(sliders.recoverTime === RECOVER_TIME.value);
 
   // Render seconds
   if (seconds <= 59) {
@@ -139,32 +144,32 @@ function syncSliders(sliders, elapsedTime, pointer) {
   if (elapsedTime === 0) return sliders;
 
   if (!pointer || pointer === 'workTime') {
-    if (elapsedTime < WORK_TIME) {
-      sliders.workTime = WORK_TIME - elapsedTime;
-      sliders.recoverTime = RECOVER_TIME;
+    if (elapsedTime < WORK_TIME.value) {
+      sliders.workTime = WORK_TIME.value - elapsedTime;
+      sliders.recoverTime = RECOVER_TIME.value;
       return sliders;
-    } else if (elapsedTime === WORK_TIME) {
+    } else if (elapsedTime === WORK_TIME.value) {
       sliders.workTime = elapsedTime;
-      sliders.recoverTime = RECOVER_TIME;
+      sliders.recoverTime = RECOVER_TIME.value;
       return sliders;
     } else {
-      sliders.workTime = WORK_TIME;
-      return syncSliders(sliders, elapsedTime - WORK_TIME, 'recoverTime');
+      sliders.workTime = WORK_TIME.value;
+      return syncSliders(sliders, elapsedTime - WORK_TIME.value, 'recoverTime');
     }
   }
 
   if (pointer === 'recoverTime') {
-    if (elapsedTime < RECOVER_TIME) {
-      sliders.recoverTime = RECOVER_TIME - elapsedTime;
-      sliders.workTime = WORK_TIME;
+    if (elapsedTime < RECOVER_TIME.value) {
+      sliders.recoverTime = RECOVER_TIME.value - elapsedTime;
+      sliders.workTime = WORK_TIME.value;
       return sliders;
-    } else if (elapsedTime === RECOVER_TIME) {
+    } else if (elapsedTime === RECOVER_TIME.value) {
       sliders.recoverTime = elapsedTime;
-      sliders.workTime = WORK_TIME;
+      sliders.workTime = WORK_TIME.value;
       return sliders;
     } else {
-      sliders.recoverTime = RECOVER_TIME;
-      return syncSliders(sliders, elapsedTime - RECOVER_TIME, 'workTime');
+      sliders.recoverTime = RECOVER_TIME.value;
+      return syncSliders(sliders, elapsedTime - RECOVER_TIME.value, 'workTime');
     }
   }
 }
@@ -196,17 +201,17 @@ function resetTime(keepTime) {
 
 function resetRecover() {
   recoverMode = false;
-  recoverTime.value = RECOVER_TIME;
+  recoverTime.value = RECOVER_TIME.value;
 }
 
 function reset(keepLastState) {
   resetTime(keepLastState);
 
-  if (!keepLastState) rounds.value = ROUNDS;
+  if (!keepLastState) rounds.value = ROUNDS.value;
 
   resetRecover();
 
-  workTime.value = WORK_TIME;
+  workTime.value = WORK_TIME.value;
 
   lastControl.value = keepLastState ? 'finish' : 'stop';
 
@@ -224,6 +229,14 @@ function handleClick(action) {
     isPaused = true;
     takeSnapshot();
   }
+}
+
+function saveSettings() {
+  localStorage.setItem(ROUNDS_KEY, ROUNDS.value);
+  localStorage.setItem(WORK_TIME_KEY, WORK_TIME.value);
+  localStorage.setItem(RECOVER_TIME_KEY, RECOVER_TIME.value);
+
+  modal.value = false;
 }
 
 function watchers() {
@@ -301,7 +314,7 @@ function watchers() {
 
     recoverMode = true;
 
-    workTime.value = WORK_TIME;
+    workTime.value = WORK_TIME.value;
 
     // Round finish without recover time (affect to computedRounds in syncSliders())
     // rounds.value--;
@@ -339,10 +352,15 @@ function setup() {
     seconds: computed(() => (sec.value < 10 ? `0${sec.value}` : sec.value)),
     minutes: computed(() => (min.value < 10 ? `0${min.value}` : min.value)),
     handleClick,
-    recoverTime,
-    workTime,
-    rounds,
+    saveSettings,
+    modal,
     lastControl,
+    ROUNDS,
+    WORK_TIME,
+    RECOVER_TIME,
+    rounds,
+    workTime,
+    recoverTime,
   };
 }
 
@@ -354,7 +372,7 @@ createApp({ setup })
         secondary: '#009879',
         accent: '#81fed9',
 
-        dark: '#121212',
+        dark: '#22272e',
         'dark-page': '#22272e',
 
         positive: '#21BA45',

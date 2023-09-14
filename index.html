@@ -21,44 +21,108 @@
 
   <body>
     <main id="app">
-      <div class="container row content-center q-pa-sm q-gutter-y-lg">
-        <section id="timer" class="row flex-center col-12">
+      <q-btn
+        flat
+        round
+        color="white"
+        round
+        icon="settings"
+        class="absolute-top-right"
+        @click="modal=true"
+      ></q-btn>
+
+      <q-dialog v-model="modal">
+        <q-card>
+          <q-card-section class="row items-center q-pb-none">
+            <div class="text-h6">Settings</div>
+            <q-space></q-space>
+            <q-btn icon="close" flat round dense v-close-popup></q-btn>
+          </q-card-section>
+
+          <q-card-section>
+            <q-form @submit.prevent="saveSettings">
+              <q-input
+                filled
+                type="number"
+                v-model="ROUNDS"
+                label="Rounds"
+                lazy-rules="ondemand"
+                :rules="[ val => val > 1 || 'Set value greater than 1']"
+              ></q-input>
+
+              <q-input
+                filled
+                type="number"
+                v-model="WORK_TIME"
+                label="Work time"
+                lazy-rules="ondemand"
+                :rules="[ val => val > 5 || 'Set value greater than 5']"
+              ></q-input>
+
+              <q-input
+                filled
+                type="number"
+                v-model="RECOVER_TIME"
+                label="Recover time"
+                lazy-rules="ondemand"
+                :rules="[ val => val > 5  || 'Set value greater than 5']"
+              ></q-input>
+
+              <div>
+                <q-btn label="Save" type="submit" color="primary"></q-btn>
+              </div>
+            </q-form>
+          </q-card-section>
+        </q-card>
+      </q-dialog>
+
+      <div class="container row content-center q-pa-sm q-gutter-y-md">
+        <section id="timer" class="row flex-center col-12" v-cloak>
           <h2 class="timer q-my-none">
             {{minutes}}:{{seconds}}.{{milliseconds}}
           </h2>
         </section>
 
-        <section id="sliders" class="row flex-center col-12">
-          <q-knob
-            show-value
-            class="q-ma-sm"
-            v-model="rounds"
-            size="70px"
-            color="primary"
-            track-color="grey-3"
-            max="30"
-            readonly="true"
-          ></q-knob>
-          <q-knob
-            show-value
-            class="q-ma-sm"
-            v-model="workTime"
-            size="70px"
-            color="primary"
-            track-color="grey-3"
-            max="60"
-            readonly="true"
-          ></q-knob>
-          <q-knob
-            show-value
-            class="q-ma-sm"
-            v-model="recoverTime"
-            size="70px"
-            color="primary"
-            track-color="grey-3"
-            max="60"
-            readonly="true"
-          ></q-knob>
+        <section id="sliders" class="row justify-evenly col-12">
+          <div class="row col-3">
+            <q-knob
+              show-value
+              class="col-12"
+              v-model="rounds"
+              size="70px"
+              color="primary"
+              track-color="grey-3"
+              max="30"
+              readonly="true"
+            ></q-knob>
+            <p class="text-subtitle2 text-center col-12">Rounds</p>
+          </div>
+          <div class="row col-3">
+            <q-knob
+              show-value
+              class="col-12"
+              v-model="workTime"
+              size="70px"
+              color="primary"
+              track-color="grey-3"
+              max="60"
+              readonly="true"
+            ></q-knob>
+            <p class="text-subtitle2 text-center col-12">Work</p>
+          </div>
+          <div class="row col-3">
+            <q-knob
+              show-value
+              class="col-12"
+              v-model="recoverTime"
+              size="70px"
+              color="primary"
+              track-color="grey-3"
+              max="60"
+              readonly="true"
+            ></q-knob>
+            <p class="text-subtitle2 text-center col-12">Recover</p>
+          </div>
         </section>
 
         <section id="controls" class="row flex-center q-gutter-x-sm col-12">
@@ -67,7 +131,6 @@
             color="primary"
             round
             icon="pause"
-            data-action="pause"
             @click="handleClick('pause')"
             v-show="lastControl  === 'play'"
           ></q-btn>
@@ -76,7 +139,6 @@
             color="primary"
             round
             icon="play_arrow"
-            data-action="play"
             @click="handleClick('play')"
             :disabled="!rounds"
             v-show="lastControl  !== 'play'"
@@ -86,7 +148,6 @@
             color="primary"
             round
             icon="stop"
-            data-action="stop"
             :disabled="lastControl  === 'stop'"
             @click="handleClick('stop')"
           ></q-btn>
