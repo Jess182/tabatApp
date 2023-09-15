@@ -30,9 +30,9 @@ let snapShotObj = null;
 let workTimeSound;
 let recoverTimeSound;
 
-const ROUNDS = ref(+localStorage.getItem(ROUNDS_KEY));
-const WORK_TIME = ref(+localStorage.getItem(WORK_TIME_KEY));
-const RECOVER_TIME = ref(+localStorage.getItem(RECOVER_TIME_KEY));
+const ROUNDS = ref(+localStorage.getItem(ROUNDS_KEY) || 5);
+const WORK_TIME = ref(+localStorage.getItem(WORK_TIME_KEY) || 25);
+const RECOVER_TIME = ref(+localStorage.getItem(RECOVER_TIME_KEY) || 10);
 
 const recoverTime = ref(RECOVER_TIME.value);
 const workTime = ref(WORK_TIME.value);
