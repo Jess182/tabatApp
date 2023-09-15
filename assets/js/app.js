@@ -10,8 +10,8 @@ const WORK_TIME_SOUND_KEY = 'workTimeSound';
 const RECOVER_TIME_SOUND_KEY = 'recoverTimeSound';
 
 const DEFAULT_SOUND_PATHS = {
-  [WORK_TIME_SOUND_KEY]: '/assets/audio/bell.mp3',
-  [RECOVER_TIME_SOUND_KEY]: 'assets/audio/buzzer.mp3',
+  [WORK_TIME_SOUND_KEY]: '/assets/audios/bell.mp3',
+  [RECOVER_TIME_SOUND_KEY]: 'assets/audios/buzzer.mp3',
 };
 
 let db;
