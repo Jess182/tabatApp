@@ -310,7 +310,7 @@ function setAudio(key) {
       blob = new Blob([audioData], { type: 'audio/mp3' });
       audioURL = URL.createObjectURL(blob);
     } else {
-      console.log(`Set default sound for: ${key}`);
+      console.debug(`Set default sound for: ${key}`);
 
       audioURL = DEFAULT_SOUND_PATHS[key];
 
