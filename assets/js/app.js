@@ -1,15 +1,21 @@
 const { computed, createApp, ref, watch } = Vue;
 
+// LocalStorage keys
 const ROUNDS_KEY = 'tabatApp-rounds';
 const WORK_TIME_KEY = 'tabatApp-work-time';
 const RECOVER_TIME_KEY = 'tabatApp-recover-time';
 
-let startTimeSound = new Audio('/assets/audio/bell.mp3');
-let endTimeSound = new Audio('/assets/audio/buzzer.mp3');
+// IndexDB keys
+const WORK_TIME_SOUND_KEY = 'workTimeSound';
+const RECOVER_TIME_SOUND_KEY = 'recoverTimeSound';
 
-const ROUNDS = ref(+localStorage.getItem(ROUNDS_KEY));
-const WORK_TIME = ref(+localStorage.getItem(WORK_TIME_KEY));
-const RECOVER_TIME = ref(+localStorage.getItem(RECOVER_TIME_KEY));
+const DEFAULT_SOUND_PATHS = {
+  [WORK_TIME_SOUND_KEY]: '/assets/audio/bell.mp3',
+  [RECOVER_TIME_SOUND_KEY]: 'assets/audio/buzzer.mp3',
+};
+
+let db;
+let dbRequest = indexedDB.open('tabatapp', 1);
 
 let interval = null;
 let initTime = null;
@@ -21,16 +27,26 @@ let recoverMode = false;
 
 let snapShotObj = null;
 
-const lastControl = ref('stop');
-const modal = ref(false);
+let workTimeSound;
+let recoverTimeSound;
+
+const ROUNDS = ref(+localStorage.getItem(ROUNDS_KEY));
+const WORK_TIME = ref(+localStorage.getItem(WORK_TIME_KEY));
+const RECOVER_TIME = ref(+localStorage.getItem(RECOVER_TIME_KEY));
+
+const recoverTime = ref(RECOVER_TIME.value);
+const workTime = ref(WORK_TIME.value);
+const rounds = ref(ROUNDS.value);
 
 const ms = ref(0);
 const sec = ref(0);
 const min = ref(0);
 
-const recoverTime = ref(RECOVER_TIME.value);
-const workTime = ref(WORK_TIME.value);
-const rounds = ref(ROUNDS.value);
+const lastControl = ref('stop');
+const modal = ref(false);
+
+const workTimeSoundInput = ref(null);
+const recoverTimeSoundInput = ref(null);
 
 function intervalCb() {
   if (pausedWatchers || isPaused) return;
@@ -239,7 +255,92 @@ function saveSettings() {
   localStorage.setItem(WORK_TIME_KEY, WORK_TIME.value);
   localStorage.setItem(RECOVER_TIME_KEY, RECOVER_TIME.value);
 
+  rounds.value = ROUNDS.value;
+  workTime.value = WORK_TIME.value;
+  recoverTime.value = RECOVER_TIME.value;
+
+  if (workTimeSoundInput.value) {
+    const reader = new FileReader();
+
+    reader.onload = (e) => {
+      saveAudio(e.target.result, WORK_TIME_SOUND_KEY);
+      setAudio(WORK_TIME_SOUND_KEY);
+    };
+
+    reader.readAsArrayBuffer(workTimeSoundInput.value);
+  }
+
+  if (recoverTimeSoundInput.value) {
+    const reader = new FileReader();
+
+    reader.onload = (e) => {
+      saveAudio(e.target.result, RECOVER_TIME_SOUND_KEY);
+      setAudio(RECOVER_TIME_SOUND_KEY);
+    };
+
+    reader.readAsArrayBuffer(recoverTimeSoundInput.value);
+  }
+
   modal.value = false;
+}
+
+function saveAudio(buffer, key) {
+  const transaction = db.transaction(['audios'], 'readwrite');
+  const objectStore = transaction.objectStore('audios');
+  const dbAction = objectStore.put(buffer, key);
+
+  dbAction.onerror = (event) =>
+    console.error(`Error to save audio: ${event.target.error}`);
+}
+
+function setAudio(key) {
+  var transaction = db.transaction(['audios'], 'readonly');
+
+  var objectStore = transaction.objectStore('audios');
+
+  var getRequest = objectStore.get(key);
+
+  let audioURL;
+  let blob;
+
+  getRequest.onsuccess = (event) => {
+    var audioData = event.target.result;
+
+    if (audioData) {
+      blob = new Blob([audioData], { type: 'audio/mp3' });
+      audioURL = URL.createObjectURL(blob);
+    } else {
+      console.log(`Set default sound for: ${key}`);
+
+      audioURL = DEFAULT_SOUND_PATHS[key];
+
+      fetch(DEFAULT_SOUND_PATHS[key])
+        .then((res) => res.blob())
+        .then((blob) => setAudioInput(key, blob));
+    }
+
+    if (key.includes('work')) {
+      workTimeSound = new Audio(audioURL);
+    } else {
+      recoverTimeSound = new Audio(audioURL);
+    }
+
+    if (blob) setAudioInput(key, blob);
+  };
+
+  getRequest.onerror = (event) =>
+    console.error(`Error to get audio: ${event.target.error}`);
+}
+
+function setAudioInput(key, blob) {
+  if (key.includes('work')) {
+    workTimeSoundInput.value = new File([blob], `${WORK_TIME_SOUND_KEY}.mp3`);
+  } else {
+    recoverTimeSoundInput.value = new File(
+      [blob],
+      `${RECOVER_TIME_SOUND_KEY}.mp3`
+    );
+  }
 }
 
 function watchers() {
@@ -257,6 +358,24 @@ function watchers() {
     }
   });
 
+  dbRequest.onupgradeneeded = function (event) {
+    db = event.target.result;
+
+    if (!db.objectStoreNames.contains('audios')) {
+      db.createObjectStore('audios');
+    }
+  };
+
+  dbRequest.onsuccess = (event) => {
+    db = event.target.result;
+
+    setAudio(WORK_TIME_SOUND_KEY);
+    setAudio(RECOVER_TIME_SOUND_KEY);
+  };
+
+  dbRequest.onerror = (event) =>
+    console.error(`Error on database: ${event.target.errorCode}`);
+
   // "play" functionality
   watch(lastControl, (newValue, oldValue) => {
     if (newValue === 'play') {
@@ -268,7 +387,7 @@ function watchers() {
 
         initTime = startTime;
 
-        startTimeSound.play();
+        workTimeSound?.play();
       }
 
       if (oldValue === 'pause') isPaused = false;
@@ -317,7 +436,7 @@ function watchers() {
   watch(workTime, (value) => {
     if (value || pausedWatchers) return;
 
-    endTimeSound.play();
+    recoverTimeSound?.play();
 
     recoverMode = true;
 
@@ -334,7 +453,7 @@ function watchers() {
     // Round finish with recover time (affect to computedRounds in syncSliders())
     rounds.value--;
 
-    if (rounds.value) startTimeSound.play();
+    if (rounds.value) workTimeSound?.play();
 
     resetRecover();
   });
@@ -370,6 +489,8 @@ function setup() {
     rounds,
     workTime,
     recoverTime,
+    workTimeSoundInput,
+    recoverTimeSoundInput,
   };
 }
 

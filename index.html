@@ -29,6 +29,7 @@
         icon="settings"
         class="absolute-top-right"
         @click="modal=true"
+        :disabled="lastControl !== 'stop'"
       ></q-btn>
 
       <q-dialog v-model="modal">
@@ -67,6 +68,32 @@
                 lazy-rules="ondemand"
                 :rules="[ val => val > 5  || 'Set value greater than 5']"
               ></q-input>
+
+              <q-file
+                filled
+                label="Work time sound"
+                class="q-mb-lg"
+                accept=".mp3"
+                max-total-size="1048576"
+                v-model="workTimeSoundInput"
+              >
+                <template v-slot:prepend>
+                  <q-icon name="attach_file" />
+                </template>
+              </q-file>
+
+              <q-file
+                filled
+                label="Recover time sound"
+                class="q-mb-lg"
+                accept=".mp3"
+                max-total-size="1048576"
+                v-model="recoverTimeSoundInput"
+              >
+                <template v-slot:prepend>
+                  <q-icon name="attach_file" />
+                </template>
+              </q-file>
 
               <div>
                 <q-btn label="Save" type="submit" color="primary"></q-btn>
@@ -157,6 +184,7 @@
 
     <script src="https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.prod.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/quasar@2.12.5/dist/quasar.umd.prod.js"></script>
+
     <script type="module" src="/assets/js/app.js"></script>
     <script type="module" src="/assets/js/wakelock.js"></script>
   </body>
