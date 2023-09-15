@@ -57,7 +57,7 @@
                 v-model="WORK_TIME"
                 label="Work time"
                 lazy-rules="ondemand"
-                :rules="[ val => val > 5 || 'Set value greater than 5']"
+                :rules="[ val => val > 4 || 'Set value greater than 5']"
               ></q-input>
 
               <q-input
@@ -66,7 +66,7 @@
                 v-model="RECOVER_TIME"
                 label="Recover time"
                 lazy-rules="ondemand"
-                :rules="[ val => val > 5  || 'Set value greater than 5']"
+                :rules="[ val => val > 4 || 'Set value greater than 5']"
               ></q-input>
 
               <q-file
@@ -187,5 +187,9 @@
 
     <script type="module" src="/assets/js/app.js"></script>
     <script type="module" src="/assets/js/wakelock.js"></script>
+    <script>
+      if ('serviceWorker' in navigator)
+        navigator.serviceWorker.register('/sw.js');
+    </script>
   </body>
 </html>

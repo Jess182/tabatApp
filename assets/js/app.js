@@ -15,7 +15,7 @@ const DEFAULT_SOUND_PATHS = {
 };
 
 let db;
-let dbRequest = indexedDB.open('tabatapp', 1);
+let dbRequest = indexedDB.open('tabatApp', 1);
 
 let interval = null;
 let initTime = null;
