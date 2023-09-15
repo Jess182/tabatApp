@@ -1,0 +1,22 @@
+{
+  "short_name": "TabatApp",
+  "name": "Tabata app",
+  "start_url": "/?source=pwa",
+  "background_color": "#22272e",
+  "display": "standalone",
+  "scope": "/",
+  "theme_color": "#4acaa8",
+  "description": "App to practice exercise with tabata mode",
+  "icons": [
+    {
+      "src": "/assets/images/icon-192.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "/assets/images/icon-512.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ]
+}
