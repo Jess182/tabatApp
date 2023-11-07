@@ -8,8 +8,8 @@ const cacheFirstAssets = [
   '/assets/js/wakelock.js',
   '/assets/css/styles.css',
   '/assets/css/fonts/digital-7-mono.ttf',
-  '/assets/audio/bell.mp3',
-  '/assets/audio/buzzer.mp3',
+  '/assets/audios/bell.mp3',
+  '/assets/audios/buzzer.mp3',
 ];
 
 const networkFirstAssets = ['/index.html', '/assets/js/app.js'];
