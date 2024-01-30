@@ -1,4 +1,11 @@
 const { computed, createApp, ref, watch } = Vue;
+const { Loading, QSpinnerFacebook } = Quasar;
+
+const LOADING_CONFIG = {
+  spinner: QSpinnerFacebook,
+  spinnerColor: 'primary',
+  backgroundColor: 'dark',
+}
 
 // LocalStorage keys
 const ROUNDS_KEY = 'tabatApp-rounds';
@@ -122,8 +129,8 @@ function renderElapsedTime(elapsedTime) {
   rounds.value = !elapsedMoreThanRound
     ? rounds.value
     : computedRounds < ROUNDS.value
-    ? computedRounds
-    : 0;
+      ? computedRounds
+      : 0;
 
   const cpuTime = elapsedMoreThanRound ? 1 : 0;
 
@@ -158,7 +165,7 @@ function renderElapsedTime(elapsedTime) {
   enableWatchers();
 }
 
-// Function to sync elapsedTime from initTime to now in all components
+// Function to sync elapsedTime, from initTime to now, in all components
 function syncSliders(sliders, elapsedTime, pointer) {
   if (elapsedTime === 0) return sliders;
 
@@ -378,20 +385,54 @@ function watchers() {
 
   // "play" functionality
   watch(lastControl, (newValue, oldValue) => {
-    if (newValue === 'play') {
-      // Start time when you "play"
+    // Start time when you "play"
+    if (newValue === 'play' && oldValue === 'pause') {
       startTime = Date.now();
 
-      if (oldValue === 'stop') {
-        interval = setInterval(intervalCb, 1);
-
-        initTime = startTime;
-
-        workTimeSound?.play();
-      }
-
-      if (oldValue === 'pause') isPaused = false;
+      isPaused = false;
     }
+
+
+    if (newValue === 'play' && oldValue === 'stop') {
+      Loading.show({
+        ...LOADING_CONFIG,
+        message: 'Start in 3 seconds...'
+      });
+
+      let timer = setTimeout(() => {
+        Loading.show({
+          ...LOADING_CONFIG,
+          message: 'Start in 2 seconds...'
+        });
+
+        timer = setTimeout(() => {
+          Loading.show({
+            ...LOADING_CONFIG,
+            message: 'Start in 1 seconds...'
+          });
+
+          timer = setTimeout(() => {
+            Loading.hide()
+
+            startTime = Date.now();
+
+            interval = setInterval(intervalCb, 1);
+
+            initTime = startTime;
+
+            workTimeSound?.play();
+
+            timer = void 0;
+          }, 1000)
+        }, 1000)
+      }, 1000)
+
+
+
+
+    }
+
+
   });
 
   // "milliseconds" functionality
@@ -474,8 +515,8 @@ function setup() {
       ms.value < 10
         ? `00${ms.value}`
         : ms.value < 100
-        ? `0${ms.value}`
-        : ms.value
+          ? `0${ms.value}`
+          : ms.value
     ),
     seconds: computed(() => (sec.value < 10 ? `0${sec.value}` : sec.value)),
     minutes: computed(() => (min.value < 10 ? `0${min.value}` : min.value)),
