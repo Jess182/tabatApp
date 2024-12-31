@@ -1,18 +1,12 @@
 const { computed, createApp, ref, watch } = Vue;
 const { Loading, QSpinnerFacebook } = Quasar;
 
-const LOADING_CONFIG = {
-  spinner: QSpinnerFacebook,
-  spinnerColor: 'primary',
-  backgroundColor: 'dark',
-}
-
 // LocalStorage keys
 const ROUNDS_KEY = 'tabatApp-rounds';
 const WORK_TIME_KEY = 'tabatApp-work-time';
 const RECOVER_TIME_KEY = 'tabatApp-recover-time';
 
-// IndexDB keys
+// IndexedDB keys
 const WORK_TIME_SOUND_KEY = 'workTimeSound';
 const RECOVER_TIME_SOUND_KEY = 'recoverTimeSound';
 
@@ -24,12 +18,12 @@ const DEFAULT_SOUND_PATHS = {
 let db;
 let dbRequest = indexedDB.open('tabatApp', 1);
 
-let interval = null;
+let globalInterval = null;
 let initTime = null;
 let startTime = null;
 
-let pausedWatchers = false;
-let isPaused = false;
+let stoppedVueWatchers = false;
+let appIsPaused = false;
 let recoverMode = false;
 
 let snapShotObj = null;
@@ -55,44 +49,38 @@ const modal = ref(false);
 const workTimeSoundInput = ref(null);
 const recoverTimeSoundInput = ref(null);
 
+/** 
+ * Callback function for globalInterval,
+ * if app or watchers are not paused, computed elapsed time and add to ms ref 
+*/
 function intervalCb() {
-  if (pausedWatchers || isPaused) return;
+  if (stoppedVueWatchers || appIsPaused) return;
 
   const elapsedTime = Date.now() - startTime;
 
   // Tick enter to this validation after "unpaused" or "wake up"
   if (snapShotObj) {
-    /*
-     * This statement is to "avoid reset ms" after "unpaused" or "wake up"
-     * While not pass one second, tick continue append snapshot ms & elapsedTime
-     */
+    // This statement is to "avoid reset ms" after "unpaused" or "wake up"
+    // While not pass one second, tick continue sum snapshot ms with elapsedTime
     ms.value = snapShotObj.ms + elapsedTime;
-
     return;
   }
 
   ms.value = elapsedTime;
 }
 
-function enableWatchers() {
-  // Start time after "wake up"
-  startTime = Date.now();
-
-  pausedWatchers = false;
-}
-
+/** Function that computed elapsedTime */
 function renderElapsedTime(elapsedTime) {
-  pausedWatchers = true;
+  stoppedVueWatchers = true;
 
+  // If elapsed time is less than 1 second, add to ms ref and start watchers
   if (elapsedTime <= 999) {
     // let computedMs = elapsedTime + ms.value;
     let computedMs = snapShotObj.ms + elapsedTime;
 
     if (computedMs <= 999) {
       ms.value += elapsedTime;
-
-      enableWatchers();
-
+      enableVueWatchers();
       return;
     }
 
@@ -102,10 +90,12 @@ function renderElapsedTime(elapsedTime) {
 
     ms.value = milliseconds;
 
-    enableWatchers();
+    enableVueWatchers();
 
     return;
   }
+
+  // If elapsed time is more than 1 second, compute rounds, work time, rest time & sync sliders
 
   const roundTime = WORK_TIME.value + RECOVER_TIME.value;
 
@@ -144,7 +134,7 @@ function renderElapsedTime(elapsedTime) {
   // Render seconds
   if (seconds <= 59) {
     sec.value = seconds;
-    enableWatchers();
+    enableVueWatchers();
     return;
   }
 
@@ -162,10 +152,10 @@ function renderElapsedTime(elapsedTime) {
   // Render minutes
   min.value = minutes;
 
-  enableWatchers();
+  enableVueWatchers();
 }
 
-// Function to sync elapsedTime, from initTime to now, in all components
+/** Function to sync elapsedTime, from initTime to now, in all components */
 function syncSliders(sliders, elapsedTime, pointer) {
   if (elapsedTime === 0) return sliders;
 
@@ -200,6 +190,13 @@ function syncSliders(sliders, elapsedTime, pointer) {
   }
 }
 
+/** Unpaused watchers & update startTime */
+function enableVueWatchers() {
+  // Start time after "wake up"
+  startTime = Date.now();
+  stoppedVueWatchers = false;
+}
+
 function takeSnapshot() {
   snapShotObj = {
     ms: ms.value,
@@ -211,27 +208,27 @@ function takeSnapshot() {
   };
 }
 
-function resetTime(keepTime) {
-  clearInterval(interval);
-
-  interval = null;
-  initTime = null;
-  startTime = null;
-
-  if (keepTime) return;
-
-  ms.value = 0;
-  sec.value = 0;
-  min.value = 0;
-}
-
 function resetRecover() {
   recoverMode = false;
   recoverTime.value = RECOVER_TIME.value;
 }
 
 function reset(keepLastState) {
-  resetTime(keepLastState);
+  function resetValues(keepTime) {
+    clearInterval(globalInterval);
+
+    globalInterval = null;
+    initTime = null;
+    startTime = null;
+
+    if (keepTime) return;
+
+    ms.value = 0;
+    sec.value = 0;
+    min.value = 0;
+  }
+
+  resetValues(keepLastState);
 
   if (!keepLastState) rounds.value = ROUNDS.value;
 
@@ -243,7 +240,7 @@ function reset(keepLastState) {
 
   snapShotObj = null;
 
-  isPaused = false;
+  appIsPaused = false;
 }
 
 function handleClick(action) {
@@ -252,7 +249,7 @@ function handleClick(action) {
   if (action === 'stop') reset();
 
   if (action === 'pause') {
-    isPaused = true;
+    appIsPaused = true;
     takeSnapshot();
   }
 }
@@ -351,85 +348,51 @@ function setAudioInput(key, blob) {
 }
 
 function watchers() {
-  document.addEventListener('visibilitychange', () => {
-    if (!initTime) return;
-
-    if (document.visibilityState === 'hidden') {
-      takeSnapshot();
-      pausedWatchers = true;
-    } else {
-      if (!isPaused) {
-        const elapsedTime = Date.now() - initTime;
-        renderElapsedTime(elapsedTime);
-      }
-    }
-  });
-
-  dbRequest.onupgradeneeded = function (event) {
-    db = event.target.result;
-
-    if (!db.objectStoreNames.contains('audios')) {
-      db.createObjectStore('audios');
-    }
-  };
-
-  dbRequest.onsuccess = (event) => {
-    db = event.target.result;
-
-    setAudio(WORK_TIME_SOUND_KEY);
-    setAudio(RECOVER_TIME_SOUND_KEY);
-  };
-
-  dbRequest.onerror = (event) =>
-    console.error(`Error on database: ${event.target.errorCode}`);
-
   // "play" functionality
   watch(lastControl, (newValue, oldValue) => {
     // Start time when you "play"
     if (newValue === 'play' && oldValue === 'pause') {
       startTime = Date.now();
-
-      isPaused = false;
+      appIsPaused = false;
     }
 
-
     if (newValue === 'play' && oldValue === 'stop') {
+      let countDown = 3;
+
       Loading.show({
         ...LOADING_CONFIG,
-        message: 'Start in 3 seconds...'
+        message: `Start in ${countDown} seconds...`
       });
 
-      let timer = setTimeout(() => {
+      countDown--;
+
+      const countDownInterval = setInterval(() => {
         Loading.show({
-          ...LOADING_CONFIG,
-          message: 'Start in 2 seconds...'
+          spinner: QSpinnerFacebook,
+          spinnerColor: 'primary',
+          backgroundColor: 'dark',
+          message: `Start in ${countDown} seconds...`
         });
 
-        timer = setTimeout(() => {
-          Loading.show({
-            ...LOADING_CONFIG,
-            message: 'Start in 1 seconds...'
-          });
+        if (!countDown) {
+          clearInterval(countDownInterval);
 
-          timer = setTimeout(() => {
-            Loading.hide()
+          Loading.hide()
 
-            startTime = Date.now();
+          startTime = Date.now();
 
-            interval = setInterval(intervalCb, 1);
+          globalInterval = setInterval(intervalCb, 10);
 
-            initTime = startTime;
+          initTime = startTime;
 
-            workTimeSound?.play();
+          workTimeSound?.play();
 
-            timer = void 0;
-          }, 1000)
-        }, 1000)
+          timer = void 0;
+        }
+
+        countDown--;
+
       }, 1000)
-
-
-
-
     }
 
 
@@ -437,7 +400,7 @@ function watchers() {
 
   // "milliseconds" functionality
   watch(ms, (value) => {
-    if (value <= 999 || pausedWatchers) return;
+    if (value <= 999 || stoppedVueWatchers) return;
 
     // Start time after 1 second
     startTime = Date.now();
@@ -459,7 +422,7 @@ function watchers() {
   // "seconds" functionality
   watch(sec, (value) => {
     //  "if value" to avoid decrease sec when reset
-    if (!value || pausedWatchers) return;
+    if (!value || stoppedVueWatchers) return;
 
     if (value > 59) {
       min.value++;
@@ -475,7 +438,7 @@ function watchers() {
 
   // "round time" functionality
   watch(workTime, (value) => {
-    if (value || pausedWatchers) return;
+    if (value || stoppedVueWatchers) return;
 
     recoverTimeSound?.play();
 
@@ -489,7 +452,7 @@ function watchers() {
 
   // "recover time" functionality
   watch(recoverTime, (value) => {
-    if (value || pausedWatchers) return;
+    if (value || stoppedVueWatchers) return;
 
     // Round finish with recover time (affect to computedRounds in syncSliders())
     rounds.value--;
@@ -501,13 +464,47 @@ function watchers() {
 
   // "rounds" functionality
   watch(rounds, (value) => {
-    if (pausedWatchers) return;
+    if (stoppedVueWatchers) return;
 
-    if (!value && interval) reset(true); // validate 'interval' to avoid change rounds when reset
+    if (!value && globalInterval) reset(true); // validate 'globalInterval' to avoid change rounds when reset
   });
 }
 
 function setup() {
+  dbRequest.onupgradeneeded = function (event) {
+    db = event.target.result;
+
+    if (!db.objectStoreNames.contains('audios')) {
+      db.createObjectStore('audios');
+    }
+  };
+
+  dbRequest.onsuccess = (event) => {
+    db = event.target.result;
+
+    setAudio(WORK_TIME_SOUND_KEY);
+    setAudio(RECOVER_TIME_SOUND_KEY);
+  };
+
+  dbRequest.onerror = (event) =>
+    console.error(`Error on database: ${event.target.errorCode}`);
+
+  // Check if app is active
+  document.addEventListener('visibilitychange', () => {
+    if (!initTime) return;
+
+    // If app is inactive take snapshot & pause watchers
+    if (document.visibilityState === 'hidden') {
+      takeSnapshot();
+      stoppedVueWatchers = true;
+    } else { // If app is activ and not paused, computed elapsed time
+      if (!appIsPaused) {
+        const elapsedTime = Date.now() - initTime;
+        renderElapsedTime(elapsedTime);
+      }
+    }
+  });
+
   watchers();
 
   return {
