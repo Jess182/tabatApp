@@ -1,22 +1,30 @@
+// @ts-check
+
 const { computed, createApp, ref, watch } = Vue;
 const { Loading, QSpinnerFacebook } = Quasar;
 
+const LOADING_CONFIG = {
+  spinner: QSpinnerFacebook,
+  spinnerColor: "primary",
+  backgroundColor: "dark",
+};
+
 // LocalStorage keys
-const ROUNDS_KEY = 'tabatApp-rounds';
-const WORK_TIME_KEY = 'tabatApp-work-time';
-const RECOVER_TIME_KEY = 'tabatApp-recover-time';
+const ROUNDS_KEY = "tabatApp-rounds";
+const WORK_TIME_KEY = "tabatApp-work-time";
+const RECOVER_TIME_KEY = "tabatApp-recover-time";
 
 // IndexedDB keys
-const WORK_TIME_SOUND_KEY = 'workTimeSound';
-const RECOVER_TIME_SOUND_KEY = 'recoverTimeSound';
+const WORK_TIME_SOUND_KEY = "workTimeSound";
+const RECOVER_TIME_SOUND_KEY = "recoverTimeSound";
 
 const DEFAULT_SOUND_PATHS = {
-  [WORK_TIME_SOUND_KEY]: '/assets/audios/bell.mp3',
-  [RECOVER_TIME_SOUND_KEY]: 'assets/audios/buzzer.mp3',
+  [WORK_TIME_SOUND_KEY]: "/assets/audios/bell.mp3",
+  [RECOVER_TIME_SOUND_KEY]: "assets/audios/buzzer.mp3",
 };
 
 let db;
-let dbRequest = indexedDB.open('tabatApp', 1);
+let dbRequest = indexedDB.open("tabatApp", 1);
 
 let globalInterval = null;
 let initTime = null;
@@ -43,16 +51,16 @@ const ms = ref(0);
 const sec = ref(0);
 const min = ref(0);
 
-const lastControl = ref('stop');
+const lastControl = ref("stop");
 const modal = ref(false);
 
 const workTimeSoundInput = ref(null);
 const recoverTimeSoundInput = ref(null);
 
-/** 
+/**
  * Callback function for globalInterval,
- * if app or watchers are not paused, computed elapsed time and add to ms ref 
-*/
+ * if app or watchers are not paused, computed elapsed time and add to ms ref
+ */
 function intervalCb() {
   if (stoppedVueWatchers || appIsPaused) return;
 
@@ -84,7 +92,7 @@ function renderElapsedTime(elapsedTime) {
       return;
     }
 
-    let [seconds, milliseconds] = `${computedMs / 1000}`.split('.');
+    let [seconds, milliseconds] = `${computedMs / 1000}`.split(".");
 
     sec.value += seconds;
 
@@ -103,7 +111,7 @@ function renderElapsedTime(elapsedTime) {
 
   elapsedTime = elapsedTime >= totalTime ? totalTime : elapsedTime;
 
-  let [seconds, milliseconds] = `${elapsedTime / 1000}`.split('.');
+  let [seconds, milliseconds] = `${elapsedTime / 1000}`.split(".");
 
   seconds = +seconds;
 
@@ -119,8 +127,8 @@ function renderElapsedTime(elapsedTime) {
   rounds.value = !elapsedMoreThanRound
     ? rounds.value
     : computedRounds < ROUNDS.value
-      ? computedRounds
-      : 0;
+    ? computedRounds
+    : 0;
 
   const cpuTime = elapsedMoreThanRound ? 1 : 0;
 
@@ -159,7 +167,7 @@ function renderElapsedTime(elapsedTime) {
 function syncSliders(sliders, elapsedTime, pointer) {
   if (elapsedTime === 0) return sliders;
 
-  if (!pointer || pointer === 'workTime') {
+  if (!pointer || pointer === "workTime") {
     if (elapsedTime < WORK_TIME.value) {
       sliders.workTime = WORK_TIME.value - elapsedTime;
       sliders.recoverTime = RECOVER_TIME.value;
@@ -170,11 +178,11 @@ function syncSliders(sliders, elapsedTime, pointer) {
       return sliders;
     } else {
       sliders.workTime = WORK_TIME.value;
-      return syncSliders(sliders, elapsedTime - WORK_TIME.value, 'recoverTime');
+      return syncSliders(sliders, elapsedTime - WORK_TIME.value, "recoverTime");
     }
   }
 
-  if (pointer === 'recoverTime') {
+  if (pointer === "recoverTime") {
     if (elapsedTime < RECOVER_TIME.value) {
       sliders.recoverTime = RECOVER_TIME.value - elapsedTime;
       sliders.workTime = WORK_TIME.value;
@@ -185,7 +193,7 @@ function syncSliders(sliders, elapsedTime, pointer) {
       return sliders;
     } else {
       sliders.recoverTime = RECOVER_TIME.value;
-      return syncSliders(sliders, elapsedTime - RECOVER_TIME.value, 'workTime');
+      return syncSliders(sliders, elapsedTime - RECOVER_TIME.value, "workTime");
     }
   }
 }
@@ -236,7 +244,7 @@ function reset(keepLastState) {
 
   workTime.value = WORK_TIME.value;
 
-  lastControl.value = keepLastState ? 'finish' : 'stop';
+  lastControl.value = keepLastState ? "finish" : "stop";
 
   snapShotObj = null;
 
@@ -246,9 +254,9 @@ function reset(keepLastState) {
 function handleClick(action) {
   lastControl.value = action;
 
-  if (action === 'stop') reset();
+  if (action === "stop") reset();
 
-  if (action === 'pause') {
+  if (action === "pause") {
     appIsPaused = true;
     takeSnapshot();
   }
@@ -267,7 +275,7 @@ function saveSettings() {
     const reader = new FileReader();
 
     reader.onload = (e) => {
-      saveAudio(e.target.result, WORK_TIME_SOUND_KEY);
+      saveAudio(e.target?.result, WORK_TIME_SOUND_KEY);
       setAudio(WORK_TIME_SOUND_KEY);
     };
 
@@ -278,7 +286,7 @@ function saveSettings() {
     const reader = new FileReader();
 
     reader.onload = (e) => {
-      saveAudio(e.target.result, RECOVER_TIME_SOUND_KEY);
+      saveAudio(e.target?.result, RECOVER_TIME_SOUND_KEY);
       setAudio(RECOVER_TIME_SOUND_KEY);
     };
 
@@ -289,8 +297,8 @@ function saveSettings() {
 }
 
 function saveAudio(buffer, key) {
-  const transaction = db.transaction(['audios'], 'readwrite');
-  const objectStore = transaction.objectStore('audios');
+  const transaction = db.transaction(["audios"], "readwrite");
+  const objectStore = transaction.objectStore("audios");
   const dbAction = objectStore.put(buffer, key);
 
   dbAction.onerror = (event) =>
@@ -298,20 +306,20 @@ function saveAudio(buffer, key) {
 }
 
 function setAudio(key) {
-  var transaction = db.transaction(['audios'], 'readonly');
+  const transaction = db.transaction(["audios"], "readonly");
 
-  var objectStore = transaction.objectStore('audios');
+  const objectStore = transaction.objectStore("audios");
 
-  var getRequest = objectStore.get(key);
+  const getRequest = objectStore.get(key);
 
   let audioURL;
   let blob;
 
   getRequest.onsuccess = (event) => {
-    var audioData = event.target.result;
+    const audioData = event.target.result;
 
     if (audioData) {
-      blob = new Blob([audioData], { type: 'audio/mp3' });
+      blob = new Blob([audioData], { type: "audio/mp3" });
       audioURL = URL.createObjectURL(blob);
     } else {
       console.debug(`Set default sound for: ${key}`);
@@ -323,7 +331,7 @@ function setAudio(key) {
         .then((blob) => setAudioInput(key, blob));
     }
 
-    if (key.includes('work')) {
+    if (key.includes("work")) {
       workTimeSound = new Audio(audioURL);
     } else {
       recoverTimeSound = new Audio(audioURL);
@@ -337,7 +345,7 @@ function setAudio(key) {
 }
 
 function setAudioInput(key, blob) {
-  if (key.includes('work')) {
+  if (key.includes("work")) {
     workTimeSoundInput.value = new File([blob], `${WORK_TIME_SOUND_KEY}.mp3`);
   } else {
     recoverTimeSoundInput.value = new File(
@@ -351,17 +359,17 @@ function watchers() {
   // "play" functionality
   watch(lastControl, (newValue, oldValue) => {
     // Start time when you "play"
-    if (newValue === 'play' && oldValue === 'pause') {
+    if (newValue === "play" && oldValue === "pause") {
       startTime = Date.now();
       appIsPaused = false;
     }
 
-    if (newValue === 'play' && oldValue === 'stop') {
+    if (newValue === "play" && oldValue === "stop") {
       let countDown = 3;
 
       Loading.show({
         ...LOADING_CONFIG,
-        message: `Start in ${countDown} seconds...`
+        message: `Start in ${countDown} seconds...`,
       });
 
       countDown--;
@@ -369,15 +377,15 @@ function watchers() {
       const countDownInterval = setInterval(() => {
         Loading.show({
           spinner: QSpinnerFacebook,
-          spinnerColor: 'primary',
-          backgroundColor: 'dark',
-          message: `Start in ${countDown} seconds...`
+          spinnerColor: "primary",
+          backgroundColor: "dark",
+          message: `Start in ${countDown} seconds...`,
         });
 
         if (!countDown) {
           clearInterval(countDownInterval);
 
-          Loading.hide()
+          Loading.hide();
 
           startTime = Date.now();
 
@@ -386,16 +394,11 @@ function watchers() {
           initTime = startTime;
 
           workTimeSound?.play();
-
-          timer = void 0;
         }
 
         countDown--;
-
-      }, 1000)
+      }, 1000);
     }
-
-
   });
 
   // "milliseconds" functionality
@@ -416,7 +419,7 @@ function watchers() {
 
     ms.value = 0;
 
-    if (value > 1999) console.error('Elapsed time for +2 seconds');
+    if (value > 1999) console.error("Elapsed time for +2 seconds");
   });
 
   // "seconds" functionality
@@ -472,32 +475,33 @@ function watchers() {
 
 function setup() {
   dbRequest.onupgradeneeded = function (event) {
-    db = event.target.result;
+    db = event.target?.result;
 
-    if (!db.objectStoreNames.contains('audios')) {
-      db.createObjectStore('audios');
+    if (!db.objectStoreNames.contains("audios")) {
+      db.createObjectStore("audios");
     }
   };
 
   dbRequest.onsuccess = (event) => {
-    db = event.target.result;
+    db = event.target?.result;
 
     setAudio(WORK_TIME_SOUND_KEY);
     setAudio(RECOVER_TIME_SOUND_KEY);
   };
 
   dbRequest.onerror = (event) =>
-    console.error(`Error on database: ${event.target.errorCode}`);
+    console.error(`Error on database: ${event.target?.errorCode}`);
 
   // Check if app is active
-  document.addEventListener('visibilitychange', () => {
+  document.addEventListener("visibilitychange", () => {
     if (!initTime) return;
 
     // If app is inactive take snapshot & pause watchers
-    if (document.visibilityState === 'hidden') {
+    if (document.visibilityState === "hidden") {
       takeSnapshot();
       stoppedVueWatchers = true;
-    } else { // If app is activ and not paused, computed elapsed time
+    } else {
+      // If app is activ and not paused, computed elapsed time
       if (!appIsPaused) {
         const elapsedTime = Date.now() - initTime;
         renderElapsedTime(elapsedTime);
@@ -512,8 +516,8 @@ function setup() {
       ms.value < 10
         ? `00${ms.value}`
         : ms.value < 100
-          ? `0${ms.value}`
-          : ms.value
+        ? `0${ms.value}`
+        : ms.value
     ),
     seconds: computed(() => (sec.value < 10 ? `0${sec.value}` : sec.value)),
     minutes: computed(() => (min.value < 10 ? `0${min.value}` : min.value)),
@@ -536,20 +540,20 @@ createApp({ setup })
   .use(Quasar, {
     config: {
       brand: {
-        primary: '#4acaa8',
-        secondary: '#009879',
-        accent: '#81fed9',
+        primary: "#4acaa8",
+        secondary: "#009879",
+        accent: "#81fed9",
 
-        dark: '#22272e',
-        'dark-page': '#22272e',
+        dark: "#22272e",
+        "dark-page": "#22272e",
 
-        positive: '#21BA45',
-        negative: '#C10015',
-        info: '#31CCEC',
-        warning: '#F2C037',
+        positive: "#21BA45",
+        negative: "#C10015",
+        info: "#31CCEC",
+        warning: "#F2C037",
       },
 
       dark: true,
     },
   })
-  .mount('#app');
+  .mount("#app");

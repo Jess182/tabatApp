@@ -1,6 +1,6 @@
 @font-face {
-  font-family: 'digital-clock-font';
-  src: url('/assets/css/fonts/digital-7-mono.ttf');
+  font-family: "digital-clock-font";
+  src: url("/assets/css/fonts/digital-7-mono.ttf");
 }
 
 [v-cloak] {
@@ -13,5 +13,5 @@
 }
 
 .timer {
-  font-family: 'digital-clock-font';
+  font-family: "digital-clock-font";
 }
