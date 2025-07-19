@@ -168,15 +168,15 @@
             round
             icon="play_arrow"
             @click="handleClick('play')"
+            v-if="lastControl !== 'play'"
             :disabled="!rounds"
-            v-show="lastControl  !== 'play'"
           ></q-btn>
           <q-btn
             push
             color="primary"
             round
             icon="stop"
-            :disabled="lastControl  === 'stop'"
+            :disabled="lastControl === 'stop'"
             @click="handleClick('stop')"
           ></q-btn>
         </section>

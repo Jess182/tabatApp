@@ -1,5 +1,6 @@
 // @ts-check
 
+// --- Cache logic (Original) ---
 const CACHE_KEY = "tabatApp";
 
 const cacheFirstAssets = [
@@ -27,11 +28,10 @@ async function deleteOldCaches() {
 }
 
 self.addEventListener("install", (event) => {
+  self.skipWaiting(); // Forces to service worker to start inmediately (for timer)
   event.waitUntil(
     caches.open(CACHE_KEY).then((cache) => cache.addAll(cacheFirstAssets))
   );
-
-  // self.skipWaiting();
 });
 
 self.addEventListener("activate", (event) => {
@@ -79,4 +79,69 @@ self.addEventListener("fetch", function (event) {
       }
     })()
   );
+});
+
+// --- Timer logic ---
+let timerId = null;
+let timerState = {};
+
+function showNotification(title, options) {
+  self.registration.showNotification(title, {
+    badge: "/assets/images/icon-192.png",
+    icon: "/assets/images/icon-192.png",
+    renotify: true,
+    tag: "tabata-timer",
+    ...options,
+  });
+}
+
+function scheduleNext() {
+  if (!timerId) return;
+
+  if (timerState.isRecovering) {
+    timerState.isRecovering = false;
+    showNotification(
+      `Ronda ${timerState.initialRounds - timerState.rounds + 1}: ¡A TRABAJAR!`,
+      {
+        body: `Prepárate para ${timerState.workTime} segundos.`,
+        sound: timerState.workSound,
+        vibrate: [500],
+      }
+    );
+    timerId = setTimeout(scheduleNext, timerState.workTime * 1000);
+  } else {
+    timerState.rounds--;
+    if (timerState.rounds < 0) {
+      showNotification("¡Entrenamiento completado!", {
+        body: "¡Buen trabajo!",
+        sound: timerState.recoverSound,
+        vibrate: [200, 100, 200],
+      });
+      clearTimeout(timerId);
+      timerId = null;
+      return;
+    }
+    timerState.isRecovering = true;
+    showNotification("¡A DESCANSAR!", {
+      body: `Tómate ${timerState.recoverTime} segundos.`,
+      sound: timerState.recoverSound,
+      vibrate: [200, 100, 200],
+    });
+    timerId = setTimeout(scheduleNext, timerState.recoverTime * 1000);
+  }
+}
+
+self.addEventListener("message", (event) => {
+  const { command, state } = event.data;
+  if (command === "start") {
+    if (timerId) return;
+    timerState = { ...state, initialRounds: state.rounds };
+    scheduleNext();
+  } else if (command === "stop") {
+    if (timerId) clearTimeout(timerId);
+    timerId = null;
+    self.registration
+      .getNotifications({ tag: "tabata-timer" })
+      .then((n) => n.forEach((notif) => notif.close()));
+  }
 });

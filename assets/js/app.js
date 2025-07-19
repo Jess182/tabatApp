@@ -30,11 +30,8 @@ let globalInterval = null;
 let initTime = null;
 let startTime = null;
 
-let stoppedVueWatchers = false;
 let appIsPaused = false;
 let recoverMode = false;
-
-let snapShotObj = null;
 
 let workTimeSound;
 let recoverTimeSound;
@@ -62,158 +59,17 @@ const recoverTimeSoundInput = ref(null);
  * if app or watchers are not paused, computed elapsed time and add to ms ref
  */
 function intervalCb() {
-  if (stoppedVueWatchers || appIsPaused) return;
+  if (appIsPaused) return;
 
   const elapsedTime = Date.now() - startTime;
 
-  // Tick enter to this validation after "unpaused" or "wake up"
-  if (snapShotObj) {
-    // This statement is to "avoid reset ms" after "unpaused" or "wake up"
-    // While not pass one second, tick continue sum snapshot ms with elapsedTime
-    ms.value = snapShotObj.ms + elapsedTime;
-    return;
-  }
-
   ms.value = elapsedTime;
-}
-
-/** Function that computed elapsedTime */
-function renderElapsedTime(elapsedTime) {
-  stoppedVueWatchers = true;
-
-  // If elapsed time is less than 1 second, add to ms ref and start watchers
-  if (elapsedTime <= 999) {
-    // let computedMs = elapsedTime + ms.value;
-    let computedMs = snapShotObj.ms + elapsedTime;
-
-    if (computedMs <= 999) {
-      ms.value += elapsedTime;
-      enableVueWatchers();
-      return;
-    }
-
-    let [seconds, milliseconds] = `${computedMs / 1000}`.split(".");
-
-    sec.value += seconds;
-
-    ms.value = milliseconds;
-
-    enableVueWatchers();
-
-    return;
-  }
-
-  // If elapsed time is more than 1 second, compute rounds, work time, rest time & sync sliders
-
-  const roundTime = WORK_TIME.value + RECOVER_TIME.value;
-
-  const totalTime = roundTime * ROUNDS.value * 1000;
-
-  elapsedTime = elapsedTime >= totalTime ? totalTime : elapsedTime;
-
-  let [seconds, milliseconds] = `${elapsedTime / 1000}`.split(".");
-
-  seconds = +seconds;
-
-  milliseconds = !milliseconds ? 0 : +milliseconds;
-
-  // Render milliseconds
-  ms.value = milliseconds;
-
-  const computedRounds = parseInt(seconds / roundTime);
-
-  const elapsedMoreThanRound = seconds >= roundTime;
-
-  rounds.value = !elapsedMoreThanRound
-    ? rounds.value
-    : computedRounds < ROUNDS.value
-    ? computedRounds
-    : 0;
-
-  const cpuTime = elapsedMoreThanRound ? 1 : 0;
-
-  const sliders = syncSliders({}, seconds - cpuTime);
-
-  // Render workTime & recoverTime
-  workTime.value = sliders.workTime;
-  recoverTime.value = sliders.recoverTime;
-  recoverMode = !(sliders.recoverTime === RECOVER_TIME.value);
-
-  // Render seconds
-  if (seconds <= 59) {
-    sec.value = seconds;
-    enableVueWatchers();
-    return;
-  }
-
-  const computedMinutes = +seconds / 60;
-
-  const secondsInDec = computedMinutes % 1;
-
-  const computedSeconds = Math.round((secondsInDec * 60) / 1);
-
-  // Render seconds
-  sec.value = computedSeconds;
-
-  const minutes = Math.floor(computedMinutes);
-
-  // Render minutes
-  min.value = minutes;
-
-  enableVueWatchers();
-}
-
-/** Function to sync elapsedTime, from initTime to now, in all components */
-function syncSliders(sliders, elapsedTime, pointer) {
-  if (elapsedTime === 0) return sliders;
-
-  if (!pointer || pointer === "workTime") {
-    if (elapsedTime < WORK_TIME.value) {
-      sliders.workTime = WORK_TIME.value - elapsedTime;
-      sliders.recoverTime = RECOVER_TIME.value;
-      return sliders;
-    } else if (elapsedTime === WORK_TIME.value) {
-      sliders.workTime = elapsedTime;
-      sliders.recoverTime = RECOVER_TIME.value;
-      return sliders;
-    } else {
-      sliders.workTime = WORK_TIME.value;
-      return syncSliders(sliders, elapsedTime - WORK_TIME.value, "recoverTime");
-    }
-  }
-
-  if (pointer === "recoverTime") {
-    if (elapsedTime < RECOVER_TIME.value) {
-      sliders.recoverTime = RECOVER_TIME.value - elapsedTime;
-      sliders.workTime = WORK_TIME.value;
-      return sliders;
-    } else if (elapsedTime === RECOVER_TIME.value) {
-      sliders.recoverTime = elapsedTime;
-      sliders.workTime = WORK_TIME.value;
-      return sliders;
-    } else {
-      sliders.recoverTime = RECOVER_TIME.value;
-      return syncSliders(sliders, elapsedTime - RECOVER_TIME.value, "workTime");
-    }
-  }
 }
 
 /** Unpaused watchers & update startTime */
 function enableVueWatchers() {
   // Start time after "wake up"
   startTime = Date.now();
-  stoppedVueWatchers = false;
-}
-
-function takeSnapshot() {
-  snapShotObj = {
-    ms: ms.value,
-    sec: sec.value,
-    min: min.value,
-    workTime: workTime.value,
-    recoverTime: recoverTime.value,
-    rounds: rounds.value,
-  };
 }
 
 function resetRecover() {
@@ -246,20 +102,36 @@ function reset(keepLastState) {
 
   lastControl.value = keepLastState ? "finish" : "stop";
 
-  snapShotObj = null;
-
   appIsPaused = false;
 }
 
-function handleClick(action) {
-  lastControl.value = action;
-
-  if (action === "stop") reset();
+async function handleClick(action) {
+  if (action === "stop") {
+    reset();
+    navigator.serviceWorker.controller?.postMessage({ command: "stop" });
+  }
 
   if (action === "pause") {
     appIsPaused = true;
-    takeSnapshot();
   }
+
+  if (action === "play") {
+    let permission = Notification.permission;
+
+    if (permission === "default") {
+      permission = await Notification.requestPermission();
+    }
+
+    if (permission !== "granted") {
+      alert(
+        "Permission for notifications is required for the timer to work in the background."
+      );
+      lastControl.value = "stop"; // Revert state if permission denied
+      return;
+    }
+  }
+
+  lastControl.value = action;
 }
 
 function saveSettings() {
@@ -394,6 +266,16 @@ function watchers() {
           initTime = startTime;
 
           workTimeSound?.play();
+
+          // Start the background timer if the app is not visible
+          if (document.visibilityState === "hidden") {
+            navigator.serviceWorker.controller?.postMessage({
+              command: "start",
+              state: {
+                // ... pass the full timer state here
+              },
+            });
+          }
         }
 
         countDown--;
@@ -403,17 +285,10 @@ function watchers() {
 
   // "milliseconds" functionality
   watch(ms, (value) => {
-    if (value <= 999 || stoppedVueWatchers) return;
+    if (value <= 999) return;
 
     // Start time after 1 second
     startTime = Date.now();
-
-    /*
-     * After use snapshot ms & one second passed
-     * Clear snapShotObj to avoid incorrect computed values
-     * This statement needs to be here to works correctly
-     */
-    snapShotObj = null;
 
     sec.value++;
 
@@ -425,7 +300,7 @@ function watchers() {
   // "seconds" functionality
   watch(sec, (value) => {
     //  "if value" to avoid decrease sec when reset
-    if (!value || stoppedVueWatchers) return;
+    if (!value) return;
 
     if (value > 59) {
       min.value++;
@@ -441,7 +316,7 @@ function watchers() {
 
   // "round time" functionality
   watch(workTime, (value) => {
-    if (value || stoppedVueWatchers) return;
+    if (value) return;
 
     recoverTimeSound?.play();
 
@@ -455,7 +330,7 @@ function watchers() {
 
   // "recover time" functionality
   watch(recoverTime, (value) => {
-    if (value || stoppedVueWatchers) return;
+    if (value) return;
 
     // Round finish with recover time (affect to computedRounds in syncSliders())
     rounds.value--;
@@ -467,8 +342,6 @@ function watchers() {
 
   // "rounds" functionality
   watch(rounds, (value) => {
-    if (stoppedVueWatchers) return;
-
     if (!value && globalInterval) reset(true); // validate 'globalInterval' to avoid change rounds when reset
   });
 }
@@ -493,19 +366,29 @@ function setup() {
     console.error(`Error on database: ${event.target?.errorCode}`);
 
   // Check if app is active
-  document.addEventListener("visibilitychange", () => {
+  document.addEventListener("visibilitychange", async () => {
     if (!initTime) return;
 
-    // If app is inactive take snapshot & pause watchers
+    // If app goes to background, tell the Service Worker to take over.
     if (document.visibilityState === "hidden") {
-      takeSnapshot();
-      stoppedVueWatchers = true;
-    } else {
-      // If app is activ and not paused, computed elapsed time
-      if (!appIsPaused) {
-        const elapsedTime = Date.now() - initTime;
-        renderElapsedTime(elapsedTime);
+      if (!appIsPaused && lastControl.value === "play") {
+        navigator.serviceWorker.controller?.postMessage({
+          command: "start",
+          state: {
+            rounds: rounds.value,
+            workTime: workTime.value,
+            recoverTime: recoverTime.value,
+            isRecovering: recoverMode,
+            workSound: DEFAULT_SOUND_PATHS[WORK_TIME_SOUND_KEY],
+            recoverSound: DEFAULT_SOUND_PATHS[RECOVER_TIME_SOUND_KEY],
+          },
+        });
       }
+    } else {
+      // If app comes to foreground, stop the Service Worker timer.
+      // The main app's interval will continue naturally.
+      navigator.serviceWorker.controller?.postMessage({ command: "stop" });
+      // We might need a "catch-up" logic here for the UI, but let's focus on the background part first.
     }
   });
 
